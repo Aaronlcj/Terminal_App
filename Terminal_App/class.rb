@@ -1,3 +1,5 @@
+$progressbar = ProgressBar.create(:title => "Time Remaining", :starting_at => 0, :total => 60, :length => 60, :autofinish => false)
+
 class Questions
     attr_accessor :points, :topic, :questions_answered, :chosen_number, :questions, :answers, :correct_answer
     def initialize 
@@ -44,73 +46,93 @@ class Questions
         system("clear")
         @chosen_number= []
         case
-        when @topic == "history" && @questions_answered[0] == 5
-            puts @topic_complete
-            sleep(1)
-        when @topic == "geography" && @questions_answered[1] == 5
-            puts @topic_complete
-            sleep(1)
+            when @topic == "history" && @questions_answered[0] == 5
+                puts @topic_complete
+                sleep(1)
+            when @topic == "geography" && @questions_answered[1] == 5
+                puts @topic_complete
+                sleep(1)
 
-        when @topic == "popular" && @questions_answered[3] == 5
-            puts @topic_complete
-            sleep(1)
-        else
-            #this section controls random selection of questions and matching answer from file
-            @questions = JSON.parse(File.read("#{@topic}_questions.txt"))
-            @answers = JSON.parse(File.read("#{@topic}_answers.txt"))
-            @correct_answer = JSON.parse(File.read("#{@topic}_correct.txt"))
-            until @question_number == 5 
-                finished = false
-                @random_number = rand(5)
-                if @chosen_number.include? @random_number
-                    redo
-                else   
-                    @chosen_number << @random_number
-                end
-                @question = @questions[@chosen_number.last]
-                @answer = @answers[@chosen_number.last]
-                @correct = @correct_answer[@chosen_number.last]                
-                answer_table = Terminal::Table.new :title => "Topic: #{@topic_colour}   Score: #{@points.to_s.colorize(:light_green)}\n#{@question}", :style => { :border_x => "=".colorize(:yellow).on_blue, :border_i => "*".colorize(:yellow).on_blue, :alignment => :center}  do |t|
-                        t << ["A: #{@answer[0]}", "B: #{@answer[1]}"]
-                        t << :separator
-                        t << ["C: #{@answer[2]}", "D: #{@answer[3]}"]
-                end
-                until finished == true
-                    system("clear")
+            when @topic == "popular" && @questions_answered[3] == 5
+                puts @topic_complete
+                sleep(1)
+            else
+                #this section controls random selection of questions and matching answer from file
+                @questions = JSON.parse(File.read("#{@topic}_questions.txt"))
+                @answers = JSON.parse(File.read("#{@topic}_answers.txt"))
+                @correct_answer = JSON.parse(File.read("#{@topic}_correct.txt"))
+                until @question_number == 5 
+                    rescue_fix = false
+                    temp = 0.1
+                    finished = false
+                    @random_number = rand(5)
+                    if @chosen_number.include? @random_number
+                        redo
+                    else   
+                        @chosen_number << @random_number
+                    end
+                    @question = @questions[@chosen_number.last]
+                    @answer = @answers[@chosen_number.last]
+                    @correct = @correct_answer[@chosen_number.last]                
+                    answer_table = Terminal::Table.new :title => "Topic: #{@topic_colour}   Score: #{@points.to_s.colorize(:light_green)}\n#{@question}", :style => { :border_x => "=".colorize(:yellow).on_blue, :border_i => "*".colorize(:yellow).on_blue, :alignment => :center}  do |t|
+                            t << ["A: #{@answer[0]}", "B: #{@answer[1]}"]
+                            t << :separator
+                            t << ["C: #{@answer[2]}", "D: #{@answer[3]}"]
+                    end
                     puts answer_table
-                    input = STDIN.getch.downcase
-                        if input.match? /\A[a-d]/
-                            system("clear")
-                            if input == @correct.downcase
-                                puts "#{input.chomp.upcase} is correct! You now have #{@points += 10} points!".colorize(:green) 
-                            else
-                                puts "#{input.chomp.upcase} is incorrect. The correct answer is #{@correct.chomp.upcase}".colorize(:yellow)   
-                            end
-                            sleep(1)
-                            @question_number += 1
-                            case @topic
-                                when "history"
-                                    @questions_answered.delete_at(0)
-                                    @questions_answered.insert(0, @question_number)  
-                                when "geography"
-                                    @questions_answered.delete_at(1)
-                                    @questions_answered.insert(1, @question_number)
-                                when "popular"
-                                    @questions_answered.delete_at(3)
-                                    @questions_answered.insert(3, @question_number)
-                            end
+                    loop do 
+                        break if finished == true
+                        Timeout.timeout(temp) {
+                            @test = STDIN.getch.chomp
+                            temp = 60
+                            if @test.match? /\A[a-d]/
+                                $progressbar.reset
+                                system("clear")
+                                if @test == @correct.downcase
+                                    puts "#{@test.chomp.upcase} is correct! You now have #{@points += 10} points!".colorize(:green) 
+                                else
+                                    puts "#{@test.chomp.upcase} is incorrect. The correct answer is #{@correct.chomp.upcase}".colorize(:yellow)   
+                                end
+                                @question_number += 1
+                                case @topic
+                                    when "history"
+                                        @questions_answered.delete_at(0)
+                                        @questions_answered.insert(0, @question_number)  
+                                    when "geography"
+                                        @questions_answered.delete_at(1)
+                                        @questions_answered.insert(1, @question_number)
+                                    when "popular"
+                                        @questions_answered.delete_at(3)
+                                        @questions_answered.insert(3, @question_number)
+                                end
+                                rescue_fix = true
                                 finished = true
-                        else
+                            else
                             system("clear")
                             puts "Invalid answer - Please choose A, B, C, or D".colorize(:red)
-                            sleep(1)
+                            puts answer_table
+                            temp = 0.1 
+                        end      
+                        } 
+                    rescue Timeout::Error
+                        if rescue_fix == false 
+                            $progressbar.increment
+                            if $progressbar.progress == 59 
+                                $progressbar.reset
+                                system("clear")
+                                puts "You ran out of time. Try to be a little quicker next time"
+                                puts "Press any key to coninue"
+                                anykey = STDIN.getch
+                                finished = true
+                                system("clear")
+                                break
+                            end
+                        else
+                            break
                         end
-                        if @question_number == 5 
-                            finished = true 
-                        end
+                    end
                 end
             end
-        end
     end
     def math
         system("clear")
@@ -120,6 +142,8 @@ class Questions
         else
             math_array = []
             5.times do
+                rescue_fix = false
+                temp = 0.1
                 finished = false
                 math_array.clear
                 num1 = rand(1...100)
@@ -127,51 +151,133 @@ class Questions
                 syms = [:+, :-, :*].sample    
                 ans = num1.send(syms, num2)
                 math_array << ans
-                    3.times do 
-                        math_array << rand(1...1000)
-                    end
-                    math_array.shuffle!
-                    case math_array.index(ans)
-                        when 0 
-                            math_array.insert(4, "A") 
-                        when 1 
-                            math_array.insert(4, "B") 
-                        when 2 
-                            math_array.insert(4, "C") 
-                        when 3 
-                            math_array.insert(4, "D") 
-                    end                    
+                3.times do 
+                    math_array << rand(1...1000)
+                end
+                math_array.shuffle!
+                case math_array.index(ans)
+                    when 0 
+                        math_array.insert(4, "A") 
+                    when 1 
+                        math_array.insert(4, "B") 
+                    when 2 
+                        math_array.insert(4, "C") 
+                    when 3 
+                        math_array.insert(4, "D") 
+                end                    
                 math_table = Terminal::Table.new :title => "Topic: #{@topic_colour}   Score: #{@points.to_s.colorize(:light_green)}\nWhat is #{num1} #{syms} #{num2}", :style => {:width => 40, :border_x => "=".colorize(:yellow).on_blue, :border_i => "*".colorize(:yellow).on_blue, :alignment => :center} do |t|
                     t << ["A: #{math_array[0]}" , "B: #{math_array[1]}"]
                     t << :separator
                     t << ["C: #{math_array[2]}" , "D: #{math_array[3]}"]
                 end
-                loop do                    
-                    system("clear")
-                    puts math_table
-                    math_array[4]
-                    math_answer = STDIN.getch.downcase
-                    if math_answer.match? /\A[a-d]/ 
+                puts math_table
+                loop do 
+                    break if finished == true
+                    Timeout.timeout(temp) {
+                    @mathtest = STDIN.getch.downcase
+                    temp = 60
+                    if @mathtest.match? /\A[a-d]/
+                        $progressbar.reset
                         system("clear")
-                        if math_answer == math_array[4].downcase
-                            puts "#{math_answer.capitalize} is correct! You now have #{@points += 10} points!".colorize(:green) 
+                        if @test == math_array[4]
+                            puts "#{@mathtest.capitalize} is correct! You now have #{@points += 10} points!".colorize(:green) 
                         else
-                            puts "#{math_answer.capitalize} is incorrect. The correct answer is #{math_array[4]}".colorize(:yellow)   
+                            puts "#{@mathtest.capitalize} is incorrect. The correct answer is #{math_array[4]}".colorize(:yellow)   
                         end
-                        sleep(1)
                         @question_number += 1
                         @questions_answered.delete_at(2)
                         @questions_answered.insert(2, @question_number)
-                        break
+                        rescue_fix = true
+                        finished = true
                     else
                         system("clear")
                         puts "Invalid answer - Please choose A, B, C, or D".colorize(:red)
-                        sleep(1)
+                        puts math_table
+                        temp = 0.1
+                    end      
+                    } 
+                rescue Timeout::Error
+                    if rescue_fix == false 
+                        $progressbar.increment
+                        if $progressbar.progress == 59 
+                            $progressbar.reset
+                            system("clear")
+                            puts "You ran out of time. Try to be a little quicker next time"
+                            puts "Press any key to coninue"
+                            anykey = STDIN.getch
+                            finished = true
+                            barprog = true
+                            system("clear")
+                            break
+                        end
+                    else
+                        break
                     end
+
                 end
             end 
         end 
     end
+    # def math
+    #     system("clear")
+    #     if @questions_answered[2] == 5
+    #     puts @topic_complete
+    #     sleep(1)
+    #     else
+    #         math_array = []
+    #         5.times do
+    #             finished = false
+    #             math_array.clear
+    #             num1 = rand(1...100)
+    #             num2 = rand(1...100)
+    #             syms = [:+, :-, :*].sample    
+    #             ans = num1.send(syms, num2)
+    #             math_array << ans
+    #                 3.times do 
+    #                     math_array << rand(1...1000)
+    #                 end
+    #                 math_array.shuffle!
+    #                 case math_array.index(ans)
+    #                     when 0 
+    #                         math_array.insert(4, "A") 
+    #                     when 1 
+    #                         math_array.insert(4, "B") 
+    #                     when 2 
+    #                         math_array.insert(4, "C") 
+    #                     when 3 
+    #                         math_array.insert(4, "D") 
+    #                 end                    
+    #             math_table = Terminal::Table.new :title => "Topic: #{@topic_colour}   Score: #{@points.to_s.colorize(:light_green)}\nWhat is #{num1} #{syms} #{num2}", :style => {:width => 40, :border_x => "=".colorize(:yellow).on_blue, :border_i => "*".colorize(:yellow).on_blue, :alignment => :center} do |t|
+    #                 t << ["A: #{math_array[0]}" , "B: #{math_array[1]}"]
+    #                 t << :separator
+    #                 t << ["C: #{math_array[2]}" , "D: #{math_array[3]}"]
+    #             end
+    #             loop do                    
+    #                 system("clear")
+    #                 puts math_table
+    #                 math_array[4]
+    #                 math_answer = STDIN.getch.downcase
+    #                 if math_answer.match? /\A[a-d]/ 
+    #                     system("clear")
+    #                     if math_answer == math_array[4].downcase
+    #                         puts "#{math_answer.capitalize} is correct! You now have #{@points += 10} points!".colorize(:green) 
+    #                     else
+    #                         puts "#{math_answer.capitalize} is incorrect. The correct answer is #{math_array[4]}".colorize(:yellow)   
+    #                     end
+    #                     sleep(1)
+    #                     @question_number += 1
+    #                     @questions_answered.delete_at(2)
+    #                     @questions_answered.insert(2, @question_number)
+    #                     break
+    #                 else
+    #                     system("clear")
+    #                     puts "Invalid answer - Please choose A, B, C, or D".colorize(:red)
+    #                     sleep(1)
+    #                 end
+    #             end
+    #         end 
+    #     end 
+    # end
     def leaderboard
         @leaderboard_array = JSON.parse(File.read("leaderboard.txt"))
         system("clear")

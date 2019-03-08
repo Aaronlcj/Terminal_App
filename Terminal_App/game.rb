@@ -1,8 +1,9 @@
 require 'json'
+require 'ruby-progressbar'
+require './class'
 require 'terminal-table'
 require 'io/console'
 require 'colorize'
-require './class'
 require 'timeout'
 question_class = Questions.new
 #Intro table, welcoming user to the app
@@ -15,7 +16,7 @@ end
 puts leaderboard_table
 STDIN.getch.chomp
 system("clear")
-question_class.select_topic #runs topic selection method
-question_class.leaderboard #displays leaderboard when game is finished
+question_class.select_topic
+question_class.leaderboard 
     
     
